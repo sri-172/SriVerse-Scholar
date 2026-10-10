@@ -658,17 +658,22 @@ function topClaimsByPage(pages, n=8){
   return all.sort((a,b)=>b.sc-a.sc).slice(0,n).sort((a,b)=>a.page-b.page||a.s.localeCompare(b.s));
 }
 
-/* ---------- IndexedDB (v4) ---------- */
-const DB_NAME='sriverse_scholar', DB_VER=4; let _db=null;
+/* ---------- IndexedDB (v5: repair missing indexes in existing stores) ---------- */
+const DB_NAME='sriverse_scholar', DB_VER=5; let _db=null;
 function db(){
   if(_db) return Promise.resolve(_db);
   return new Promise((res,rej)=>{
     const r = indexedDB.open(DB_NAME, DB_VER);
     r.onupgradeneeded = e=>{
       const d = e.target.result;
-      const mk=(name, indexes)=>{ if(d.objectStoreNames.contains(name)) return;
-        const s=d.createObjectStore(name,{keyPath:'id'});
-        (indexes||[]).forEach(ix=>s.createIndex(ix,ix)); };
+      // Upgrade older databases as well as fresh installs. Previously, an existing
+      // object store was skipped entirely, leaving newly required indexes missing.
+      const mk=(name, indexes)=>{
+        const s = d.objectStoreNames.contains(name)
+          ? e.target.transaction.objectStore(name)
+          : d.createObjectStore(name,{keyPath:'id'});
+        (indexes||[]).forEach(ix=>{ if(!s.indexNames.contains(ix)) s.createIndex(ix,ix); });
+      };
       mk('users');
       mk('documents',['userId']);
       mk('chunks',['docId','userId']);
