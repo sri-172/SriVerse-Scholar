@@ -734,7 +734,7 @@ const S = {
   user:null, route:'', docs:[], notes:[], projects:[], sessions:[], bookmarks:[], evidence:[],
   flashcards:[], quizzes:[], plans:[], drafts:[], reviewlog:[], datasets:[], tasks:[], annotations:[],
   chunksCache:[], index:null, indexDirty:true, activeSession:null, messages:[], scope:{type:'all', id:null},
-  sourceOnly:true, routePref:'local', profMode:false, busy:false, pendingQuote:null,
+  sourceOnly:false, routePref:'local', profMode:false, busy:false, pendingQuote:null,
   provider:{baseUrl:'', key:'', model:'', kind:'external'},
   ondevice:{baseUrl:'http://localhost:11434/v1', key:'', model:'', kind:'on-device'},
   readerState:{query:'', matches:[], mi:0}, readerAnnoOpen:false,
@@ -925,7 +925,7 @@ async function routeAnswer(q, onStep){
     }
   }
   if(!kept.length && !quoteEv){
-    let base = S.chunksCache.length===0 ? noLibraryMsg() : insufficientMsg(q, hits.slice(0,2), S.sourceOnly);
+    let base = S.chunksCache.length===0 ? noLibraryMsg(q) : insufficientMsg(q, hits.slice(0,2), S.sourceOnly);
     if(notes.length) base.meta.fallbackNote = notes.join(' ');
     return base;
   }
@@ -934,13 +934,17 @@ async function routeAnswer(q, onStep){
   onStep && await onStep(2);
   return comp;
 }
-function noLibraryMsg(){
+function noLibraryMsg(q=''){
+  if(!S.sourceOnly && /\bwhat is science\b|\bdefine science\b|\bmeaning of science\b/i.test(q)){
+    const content = `# What is Science?\n\n**Science is a systematic way of building reliable knowledge about the natural and social world through observation, evidence, testing, and reason.** Scientists ask questions, develop explanations, test them against evidence, and revise their ideas when new evidence requires it.\n\n## Key characteristics\n- **Evidence-based:** claims should be supported by observations or data.\n- **Testable:** explanations should be open to investigation and possible correction.\n- **Reproducible:** methods and results should be described clearly enough for others to check.\n- **Self-correcting:** scientific explanations can change when stronger evidence emerges.\n\n## Example\nTo investigate whether a plant grows faster in sunlight, compare similar plants while controlling water, soil, and other conditions, then measure their growth. The conclusion should follow the results—not the expectation.\n\n## Sources to verify\n- [Science Council — What is science?](https://sciencecouncil.org/about-science/our-definition-of-science/)\n- [National Academies — The nature of science](https://nap.nationalacademies.org/)\n\n**Source note:** These are suggested reference links, not documents indexed in your personal library. This built-in explanation is a limited offline fallback, not a live AI-generated or fully source-verified answer. For answers to other topics, configure a model in **Settings → Engines** or upload your course material for passage-level citations.`;
+    return {content,evidence:[],meta:{engine:'local-fallback',label:'Built-in explanation · external references suggested',stamp:'warn',scope:scopeLabel(),scanned:0,retrieved:0,note:'No live web retrieval or AI model was used for this answer.'}};
+  }
   const generalHint = S.sourceOnly
     ? 'Sources-only mode is enabled, so I will not answer from general knowledge. Turn it off to allow general answers from a configured model.'
     : (providerReady() || ondeviceReady())
       ? 'A model route is configured, but it was not available for this request. Check Settings → Engines and try again.'
-      : 'For general questions such as “What is science?”, connect a model in Settings → Engines. Without a model, I can search and answer from documents you upload, but I cannot generate open-domain answers.';
-  return { content:`Your library has no indexed passages yet, so I cannot cite your own material.\n\n${generalHint}\n\nTo get source-grounded answers, upload a lecture PDF, paper, or notes in the **Library**. I will distinguish general model answers from answers supported by your documents.`,
+      : 'No AI model is connected. Configure a provider in Settings → Engines for ChatGPT-style answers to general questions. This app does not pretend to have an AI model when none is configured.';
+  return { content:`Your library has no indexed passages yet, so I cannot cite your own material.\n\n${generalHint}\n\nFor source-grounded answers with page citations, upload a lecture PDF, research paper, or notes in the **Library**. The answer will then be based on retrieved passages from your documents.`,
     evidence:[], meta:{engine:'local', label:'No indexed sources', stamp:'dim', scope:scopeLabel(), scanned:0, retrieved:0} };
 }
 function insufficientMsg(q, near, sourceOnly){
