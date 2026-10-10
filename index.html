@@ -908,6 +908,13 @@ async function routeAnswer(q, onStep){
   const chain=[];
   if(S.routePref==='ondevice' && ondeviceReady()) chain.push(S.ondevice);
   else if(S.routePref==='external' && providerReady() && !S.sourceOnly) chain.push(S.provider);
+  // If retrieval has no supporting passages, still allow a configured model to answer
+  // general questions when Sources-only is disabled. Keep the configured preference
+  // first, then transparently fall back to the other available route.
+  if(!kept.length && !quoteEv && !S.sourceOnly){
+    if(S.routePref!=='ondevice' && ondeviceReady() && !chain.includes(S.ondevice)) chain.push(S.ondevice);
+    if(S.routePref!=='external' && providerReady() && !chain.includes(S.provider)) chain.push(S.provider);
+  }
   for(const cfg of chain){
     try{
       onStep && await onStep(2);
@@ -928,8 +935,13 @@ async function routeAnswer(q, onStep){
   return comp;
 }
 function noLibraryMsg(){
-  return { content:`Your vault doesn't contain indexed text yet.\n\nUpload a document in the **Library** — a lecture PDF, a paper, or your own notes — and I will index every passage so answers can be grounded in *your* material with citations.\n\nI don't answer from general world knowledge: I'm a local retrieval engine and I only work from what you give me, by design.`,
-    evidence:[], meta:{engine:'local', label:'Insufficient evidence', stamp:'dim', scope:scopeLabel(), scanned:0, retrieved:0} };
+  const generalHint = S.sourceOnly
+    ? 'Sources-only mode is enabled, so I will not answer from general knowledge. Turn it off to allow general answers from a configured model.'
+    : (providerReady() || ondeviceReady())
+      ? 'A model route is configured, but it was not available for this request. Check Settings → Engines and try again.'
+      : 'For general questions such as “What is science?”, connect a model in Settings → Engines. Without a model, I can search and answer from documents you upload, but I cannot generate open-domain answers.';
+  return { content:`Your library has no indexed passages yet, so I cannot cite your own material.\n\n${generalHint}\n\nTo get source-grounded answers, upload a lecture PDF, paper, or notes in the **Library**. I will distinguish general model answers from answers supported by your documents.`,
+    evidence:[], meta:{engine:'local', label:'No indexed sources', stamp:'dim', scope:scopeLabel(), scanned:0, retrieved:0} };
 }
 function insufficientMsg(q, near, sourceOnly){
   let c = 'The available sources do not provide enough evidence to answer this confidently.';
