@@ -805,7 +805,7 @@ async function ensureIndex(){
 /* ---------- provider layer (on-device & external) ---------- */
 function providerReady(){ return !!(S.provider.baseUrl && S.provider.key && S.provider.model); }
 function ondeviceReady(){ return !!(S.ondevice.baseUrl && S.ondevice.model); }
-async function callProvider(cfg, messages, maxTok=700){
+async function callProvider(cfg, messages, maxTok=1800){
   const base=(cfg.baseUrl||'').replace(/\/+$/,'');
   if(!base || !cfg.model) throw 'Endpoint not configured.';
   const ctrl = new AbortController(); const to = setTimeout(()=>ctrl.abort(), 60000);
@@ -830,10 +830,10 @@ async function listModels(cfg){
   return (j.data||[]).map(m=>m.id).filter(Boolean);
 }
 const SYS_GROUNDED='You are Scholar, a rigorous source-grounded academic assistant. Answer ONLY using the numbered sources provided. Cite them inline as [1], [2] matching their numbers. Never fabricate citations, page numbers, quotes, statistics, URLs or findings. If the sources are insufficient, reply exactly: "The available sources do not provide enough evidence to answer this confidently." Keep a calm scholarly tone.';
-const SYS_GENERAL='You are Scholar, the academic assistant inside SriVerse Scholar. Be precise, calm and scholarly. Distinguish clearly between facts, calculations, interpretations and uncertainty. Never invent citations, page numbers, quotes, statistics or research findings. If you are unsure, say so plainly.';
+const SYS_GENERAL='You are Scholar, the academic assistant inside SriVerse Scholar. Give a complete, well-structured answer appropriate to the question, not a fragment or an outline that stops halfway. Start with a direct answer or concise definition. Then use clear Markdown headings and well-developed bullet points or numbered steps as appropriate; include key concepts, how/why it works, relevant examples or applications, important distinctions/limitations, and a short conclusion or key takeaway when useful. For scientific and academic topics, explain terminology in plain language before using it. Use equations and units carefully. Match depth to the question: normally provide a useful, substantive answer in roughly 5–9 sections when the topic warrants it, but do not pad simple answers. Do not end mid-sentence or mid-heading; finish the response cleanly. Distinguish facts, calculations, interpretations and uncertainty. Never invent citations, page numbers, quotations, statistics, DOIs, URLs, or research findings. Only include references when you can identify real sources with confidence; otherwise state that references were not independently verified. If unsure, say so plainly.';
 function remoteGeneral(cfg){
   const kind=cfg.kind||'external';
-  return callProvider(cfg,[{role:'system',content:SYS_GENERAL},{role:'user',content:S._pendingQ||''}]).then(content=>({
+  return callProvider(cfg,[{role:'system',content:SYS_GENERAL},{role:'user',content:'Answer this question fully and structurally. Use Markdown headings and complete explanations; do not truncate or stop mid-section. Question: '+(S._pendingQ||'')}],2200).then(content=>({
     content, evidence:[],
     meta:{engine:kind, label: kind==='on-device'?'On-device generated · not source-grounded':'Externally generated · not source-grounded',
       stamp:'ext', scope:scopeLabel(), scanned:0, retrieved:0,
@@ -848,7 +848,7 @@ function remoteGrounded(cfg, q, chunks, quoteEv){
   if(quoteEv) srcs.push({docTitle:quoteEv.docTitle, page:quoteEv.page, text:quoteEv.excerpt});
   chunks.forEach(c=>srcs.push({docTitle:docTitle(c.docId), page:c.page, text:c.text.slice(0,900)}));
   const up = 'Sources:\n' + srcs.map((s,i)=>`[${i+1}] ${s.docTitle}, p. ${s.page}:\n"${s.text}"`).join('\n\n') + '\n\nQuestion: '+q;
-  return callProvider(cfg,[{role:'system',content:SYS_GROUNDED},{role:'user',content:up}]).then(raw=>{
+  return callProvider(cfg,[{role:'system',content:SYS_GROUNDED+' Structure the response with a direct answer, clear Markdown headings, complete explanations and a concise conclusion. Do not stop mid-sentence or mid-section. Keep every factual claim grounded in the supplied sources and cite only their provided numbers.'},{role:'user',content:up}],1600).then(raw=>{
     const out = esc(raw).replace(/\[(\d{1,2})\]/g,(m,n)=>{ n=+n; return (n>=1&&n<=srcs.length)?`[§${n}]`:''; });
     const evidence = srcs.map((s,i)=>({docId:(i===0&&quoteEv)?quoteEv.docId:null, docTitle:s.docTitle, page:s.page, excerpt:s.text.slice(0,420), role:i===0?'primary':'supporting', prompted:true}));
     return { content:out, evidence, meta:{engine:kind,
