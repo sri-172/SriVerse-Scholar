@@ -3904,8 +3904,13 @@ async function viewSettings(el){
       </form>
     </div>
     <div class="set-sec">
-      <h2 class="serif" style="font-size:20px;margin-bottom:4px">External API provider <span class="tag">optional · may cost</span></h2>
-      <p class="small dim" style="margin-bottom:14px;max-width:62ch">Your own OpenAI-compatible endpoint (OpenAI, OpenRouter, etc.). Your key is stored only in this browser and sent only to the base URL below — never to us, never hardcoded anywhere.</p>
+      <h2 class="serif" style="font-size:20px;margin-bottom:4px">External AI models <span class="tag">free-tier or paid</span></h2>
+      <p class="small dim" style="margin-bottom:10px;max-width:68ch">For general questions without uploaded sources, connect an OpenAI-compatible model. Free models are available through OpenRouter, but you still need your own account and API key; free access has rate limits and availability can change. ChatGPT website access is not a ChatGPT API key. Your key stays in this browser and is sent to the endpoint you choose.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="btn ghost" type="button" data-action="presetFreeRouter">Use free-model router preset</button>
+        <a class="btn quiet" href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Get OpenRouter API key ↗</a>
+        <a class="btn quiet" href="https://openrouter.ai/models?pricing=free" target="_blank" rel="noopener noreferrer">Browse free models ↗</a>
+      </div>
       <form id="provForm" style="display:grid;gap:12px">
         <div><label class="lbl" for="pvBase">Base URL</label><input class="field" id="pvBase" placeholder="https://api.openai.com/v1" value="${esc(S.provider.baseUrl)}"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -3965,6 +3970,15 @@ const Actions = {
   setRoute(el){ S.routePref=el.dataset.r; saveSessionPrefs();
     const names={local:'Extractive only — fully offline', ondevice:'On-device first — your machine, free', external:'External first — your configured API'};
     toast('Routing: '+names[S.routePref]); renderApp(); },
+  presetFreeRouter(){
+    const base=$('#pvBase'), model=$('#pvModel');
+    if(base) base.value='https://openrouter.ai/api/v1';
+    if(model) model.value='openrouter/free';
+    S.routePref='external'; saveSessionPrefs();
+    $('.chip[data-action="setRoute"]').forEach(b=>b.classList.toggle('on',b.dataset.r==='external'));
+    const key=$('#pvKey'); if(key) key.focus();
+    toast('Free-model preset filled. Add your OpenRouter API key, then click Save provider and Test connection.');
+  },
   signout(){ localStorage.removeItem('sv_session'); S.user=null; S.messages=[]; S.activeSession=null; go('#/auth'); route(); },
   goSearch(){ go('#/search'); },
   goLibrary(){ go('#/library'); },
