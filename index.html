@@ -906,12 +906,12 @@ async function routeAnswer(q, onStep){
   }
   const notes=[];
   const chain=[];
+  // Prefer the selected route, then try other configured model routes. The local
+  // retrieval index supplies evidence; a configured model should compose the answer
+  // from that evidence instead of silently returning an extractive/local response.
   if(S.routePref==='ondevice' && ondeviceReady()) chain.push(S.ondevice);
-  else if(S.routePref==='external' && providerReady() && !S.sourceOnly) chain.push(S.provider);
-  // If retrieval has no supporting passages, still allow a configured model to answer
-  // general questions when Sources-only is disabled. Keep the configured preference
-  // first, then transparently fall back to the other available route.
-  if(!kept.length && !quoteEv && !S.sourceOnly){
+  if(S.routePref==='external' && providerReady()) chain.push(S.provider);
+  if(!S.sourceOnly || kept.length || quoteEv){
     if(S.routePref!=='ondevice' && ondeviceReady() && !chain.includes(S.ondevice)) chain.push(S.ondevice);
     if(S.routePref!=='external' && providerReady() && !chain.includes(S.provider)) chain.push(S.provider);
   }
